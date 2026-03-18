@@ -348,15 +348,15 @@
         mapboxgl.accessToken = CONFIG.MAPBOX_TOKEN;
         State.map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/outdoors-v12',
-            center: [138.9453, 34.6750], zoom: 14.5, pitch: 50, bearing: -10, antialias: true
+            // ベース地図は使わず、イラスト（map.png）を敷くため空スタイルにする
+            style: { version: 8, sources: {}, layers: [] },
+            center: [138.9453, 34.6750], zoom: 14.5, pitch: 0, bearing: 0, antialias: true
         });
         
-        State.mapboxLanguage = new MapboxLanguage({ defaultLanguage: 'ja' });
-        State.map.addControl(State.mapboxLanguage);
+        // 空スタイルでは地物ラベルがないため MapboxLanguage は不要（言語切替はUI文言に適用）
 
         State.map.on('load', () => {
-            addMapEffects();
+            addIllustrationOverlay();
             fetchData();
             startTracking();
         });
@@ -421,7 +421,6 @@
             toggleLanguage: () => {
                 State.language = (State.language === 'ja') ? 'en' : 'ja';
                 document.getElementById('lang-text').innerText = State.language.toUpperCase();
-                State.mapboxLanguage.setLanguage(State.map.getStyle(), State.language);
                 App.refreshUI();
             },
             refreshUI: () => {
@@ -631,6 +630,24 @@
                 'id': '3d-buildings', 'source': 'composite', 'source-layer': 'building', 'filter': ['==', 'extrude', 'true'], 'type': 'fill-extrusion', 'minzoom': 13,
                 'paint': { 'fill-extrusion-color': '#F5F5F5', 'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 15, 0, 15.05, ['get', 'height']], 'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 15, 0, 15.05, ['get', 'min_height']], 'fill-extrusion-opacity': 0.9 }
             }, labelId);
+        }
+        function addIllustrationOverlay() {
+            State.map.addSource('illustration', {
+                type: 'image',
+                url: './map.png',
+                coordinates: [
+                    [138.9676092057, 34.6791959791], // NW 左上
+                    [138.9792473664, 34.6792456046], // NE 右上
+                    [138.9792473664, 34.6710030350], // SE 右下
+                    [138.9676337176, 34.6709896653]  // SW 左下
+                ]
+            });
+            State.map.addLayer({
+                id: 'illustration-layer',
+                type: 'raster',
+                source: 'illustration',
+                paint: { 'raster-opacity': 1.0 }
+            });
         }
         function startTracking() {
             if (!navigator.geolocation) return;
