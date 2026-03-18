@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Shimoda Resort Map (UI Fixes)</title>
+    
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.css' rel='stylesheet' />
+    <script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-language/v1.0.0/mapbox-gl-language.js'></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-XXXXXXXXXX');
+    </script>
+
+    <style>
+        /* --- 🛠️ 基本設定 (リセット) --- */
+        * { box-sizing: border-box; }
+
+        /* --- 🎨 テーマカラー --- */
+        :root {
+            --color-primary: #00897B;
+            --color-secondary: #E0F2F1;
+            --color-accent: #FF5252;
+            --color-nav: #4285F4;
+            --color-text-main: #37474F;
+            --color-text-sub: #78909C;
+            --bg-glass: rgba(255, 255, 255, 0.95);
+            --shadow-soft: 0 4px 20px rgba(0,0,0,0.15);
+            --sidebar-width: 340px;
+        }
+
+        body { margin: 0; padding: 0; font-family: "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif; overflow: hidden; -webkit-tap-highlight-color: transparent; background: #f0f2f5; }
+        
+        /* --- 🗺️ マップエリア --- */
+        #map { 
+            position: absolute; top: 0; bottom: 0; right: 0; 
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        #loading {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: var(--bg-glass); padding: 15px 30px; border-radius: 30px;
+            font-weight: bold; color: var(--color-primary); z-index: 9999; pointer-events: none;
+            box-shadow: var(--shadow-soft); backdrop-filter: blur(5px);
+        }
+
+        /* --- 🎮 左上コントロール --- */
+        .controls-container {
+            position: absolute; top: 20px; left: 20px; z-index: 30;
+            display: flex; flex-direction: column; gap: 10px; align-items: flex-start;
+            transition: left 0.3s ease;
+        }
+        .lang-btn, .filter-toggle-btn {
+            background: white; border: none; color: var(--color-text-main);
+            border-radius: 30px; padding: 8px 16px; font-weight: bold; font-size: 13px;
+            cursor: pointer; box-shadow: var(--shadow-soft); display: flex; align-items: center; gap: 6px;
+            transition: all 0.2s;
+        }
+        .filter-toggle-btn { background: var(--color-primary); color: white; }
+        .lang-btn:active, .filter-toggle-btn:active { transform: scale(0.95); }
+        
+        /* フィルターパネル */
+        .filter-panel {
+            background: var(--bg-glass); border-radius: 16px; padding: 15px;
+            box-shadow: var(--shadow-soft); backdrop-filter: blur(10px);
+            display: flex; flex-direction: column; gap: 12px;
+            width: 180px; transform-origin: top left;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            opacity: 0; transform: scale(0.9); pointer-events: none;
+            position: absolute; top: 90px; left: 0;
+        }
+        .filter-panel.open { opacity: 1; transform: scale(1); pointer-events: auto; }
+        .filter-item { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; color: var(--color-text-main); padding: 4px 0; }
+        .filter-item input { display: none; }
+        .checkmark { width: 20px; height: 20px; border: 2px solid #ccc; border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .filter-item input:checked + .checkmark { background: var(--color-primary); border-color: var(--color-primary); }
+        .checkmark::after { content: '✔'; color: white; font-size: 12px; display: none; }
+        .filter-item input:checked + .checkmark::after { display: block; }
+        
+        /* --- 📰 速報バー (レイアウト修正) --- */
+        .news-ticker-wrapper { 
+            position: absolute; top: 20px; z-index: 25; pointer-events: none;
+            height: 45px; display: flex; justify-content: center;
+            transition: all 0.3s ease;
+            width: 100%; left: 0;
+        }
+        .news-ticker { 
+            background: rgba(255, 255, 255, 0.98); border-radius: 25px; 
+            box-shadow: var(--shadow-soft); padding: 0 10px 0 15px; display: flex; align-items: center; gap: 10px; 
+            width: 90%; max-width: 450px; height: 100%; pointer-events: auto; 
+            animation: slideDown 0.5s ease-out;
+        }
+        @keyframes slideDown { from { transform: translateY(-100px); } to { transform: translateY(0); } }
+        
+        .news-icon-area { color: var(--color-accent); font-size: 18px; animation: pulse 2s infinite; flex-shrink: 0; }
+        @keyframes pulse { 50% { opacity: 0.5; } }
+        .news-content-area { flex: 1; overflow: hidden; cursor: pointer; }
+        .news-text { font-size: 13px; font-weight: bold; color: var(--color-text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .news-spot-name { font-size: 10px; color: var(--color-text-sub); }
+        
+        /* ★修正: コントロール部分のレイアウト崩れ防止 */
+        .news-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0; /* 幅が縮まないように */
+            white-space: nowrap; /* 折り返し防止 */
+        }
+        .news-counter {
+            font-size: 12px;
+            color: var(--color-text-sub);
+            font-family: monospace;
+        }
+        .news-list-btn { 
+            background: #f5f5f5; border: none; width: 32px; height: 32px; border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; color: #555; cursor: pointer; 
+            transition: background 0.2s;
+        }
+        .news-list-btn:hover { background: #eee; }
+
+        /* --- 📍 マーカー --- */
+        .custom-marker { width: 60px; height: 60px; cursor: pointer; z-index: 10; transition: transform 0.2s; }
+        .custom-marker.active { z-index: 100; transform: scale(1.25); }
+        .marker-inner { width: 100%; height: 100%; background: #fff; border-radius: 50%; border: 3px solid var(--color-primary); box-shadow: 0 4px 10px rgba(0,0,0,0.3); position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        .floating { animation: float-safe 3s infinite ease-in-out; }
+        @keyframes float-safe { 0%, 100% { margin-top: 0px; } 50% { margin-top: -8px; } }
+        .marker-image { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 2; }
+        .marker-emoji { font-size: 28px; z-index: 1; }
+        .marker-inner::after { content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border-width: 8px 6px 0; border-style: solid; border-color: inherit transparent transparent transparent; z-index: -1; border-top-color: inherit; }
+        .status-badge { position: absolute; bottom: 0; right: 0; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; z-index: 5; display: none; }
+        .marker-news-badge { position: absolute; top: 0; right: 0; width: 18px; height: 18px; background: var(--color-accent); border-radius: 50%; color: white; display: flex; justify-content: center; align-items: center; font-size: 10px; z-index: 6; border: 2px solid white; }
+
+        /* --- マップコントロール (右側) --- */
+        .map-controls { 
+            position: absolute; bottom: 30px; right: 20px; 
+            z-index: 35; display: flex; flex-direction: column; gap: 12px; pointer-events: auto;
+            transition: all 0.3s ease;
+        }
+        .btn-control { width: 48px; height: 48px; border-radius: 50%; border: none; color: white; font-size: 20px; cursor: pointer; box-shadow: var(--shadow-soft); display: flex; justify-content: center; align-items: center; transition: transform 0.1s; }
+        .btn-control:active { transform: scale(0.9); }
+        .btn-gps { background: linear-gradient(135deg, #FFAB91, #FF5722); }
+        .btn-reset { background: linear-gradient(135deg, #80DEEA, #00ACC1); }
+        .my-location-marker { width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; pointer-events: none; }
+        .my-location-marker i { color: #FF5252; font-size: 45px; filter: drop-shadow(0 2px 5px rgba(255,255,255,0.8)); }
+
+        /* --- カードパネル (レスポンシブ) --- */
+        .card-panel-container { position: fixed; z-index: 40; transition: all 0.3s ease; pointer-events: none; }
+        .scroll-wrapper { display: flex; gap: 15px; pointer-events: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .scroll-wrapper::-webkit-scrollbar { display: none; }
+
+        /* スマホ */
+        .card-panel-container { bottom: 0; left: 0; width: 100%; background: linear-gradient(to top, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 100%); padding-bottom: 20px; }
+        .scroll-wrapper { overflow-x: auto; scroll-snap-type: x mandatory; padding: 10px 20px 20px 20px; align-items: flex-end; }
+        .slide-card { flex: 0 0 260px; height: 280px; background: white; border-radius: 20px; box-shadow: var(--shadow-soft); display: flex; flex-direction: column; overflow: hidden; scroll-snap-align: center; transition: all 0.3s; cursor: pointer; border: 2px solid transparent; position: relative; }
+        @media (max-width: 767px) { .map-controls { bottom: 330px; } }
+
+        /* PC */
+        @media (min-width: 768px) {
+            #map { width: calc(100% - var(--sidebar-width)); }
+            .news-ticker-wrapper { width: calc(100% - var(--sidebar-width)); left: var(--sidebar-width); }
+            .controls-container { left: calc(var(--sidebar-width) + 20px); }
+            .card-panel-container { top: 0; left: 0; bottom: 0; width: var(--sidebar-width); background: white; box-shadow: 2px 0 15px rgba(0,0,0,0.1); padding: 0; border-right: 1px solid #eee; pointer-events: auto; }
+            .scroll-wrapper { height: 100%; overflow-y: auto; flex-direction: column; padding: 20px; gap: 20px; align-items: stretch; scroll-snap-type: y mandatory; }
+            .slide-card { flex: 0 0 auto; height: 280px; width: 100%; scroll-snap-align: start; box-shadow: 0 5px 15px rgba(0,0,0,0.08); }
+            .slide-card.active { transform: scale(1.02); border-color: var(--color-primary); box-shadow: var(--shadow-soft); }
+            .map-controls { bottom: 30px; }
+        }
+
+        /* カード内容 */
+        .slide-card.active { border-color: var(--color-primary); }
+        .card-image-area { width: 100%; height: 65%; position: relative; overflow: hidden; background: #f7f7f7; }
+        .card-thumb { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
+        .card-emoji-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 60px; background: var(--color-secondary); color: var(--color-primary); }
+        .card-info { flex: 1; padding: 15px; display: flex; flex-direction: column; justify-content: center; background: white; }
+        .card-title { font-size: 16px; font-weight: bold; color: var(--color-text-main); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-meta-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .card-status { font-size: 11px; padding: 4px 10px; border-radius: 6px; font-weight: bold; letter-spacing: 0.5px; }
+        .flash-news-tag { font-size: 11px; color: white; background: var(--color-accent); padding: 4px 10px; border-radius: 6px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; }
+        .card-arrow { position: absolute; bottom: 15px; right: 15px; width: 32px; height: 32px; border-radius: 50%; background: #f5f5f5; display: flex; align-items: center; justify-content: center; color: #666; font-size: 14px; transition: all 0.2s; }
+        .slide-card.active .card-arrow { background: var(--color-primary); color: white; }
+
+        /* --- モーダル類 --- */
+        .news-list-overlay, .modal-overlay, .coupon-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2100; display: none; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
+        .news-list-overlay.open, .modal-overlay.open, .coupon-overlay.open { display: flex; }
+        
+        /* ニュースリストモーダル */
+        .news-list-card { background: white; width: 90%; max-width: 450px; max-height: 80vh; border-radius: 20px; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.3); animation: popIn 0.3s ease-out; }
+        .news-list-header { background: var(--color-accent); color: white; padding: 15px 20px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-radius: 20px 20px 0 0; flex-shrink: 0; }
+        .news-list-body { padding: 0; overflow-y: auto; flex: 1; }
+        .news-item { padding: 15px 20px; border-bottom: 1px solid #f0f0f0; cursor: pointer; display: flex; align-items: flex-start; gap: 12px; transition: background 0.2s; }
+        .news-item:hover { background: #f9f9f9; }
+        .news-item:last-child { border-bottom: none; }
+        .news-item-icon { color: var(--color-accent); margin-top: 2px; font-size: 16px; }
+        
+        /* ★修正: ニュースリストの閉じるボタンデザイン */
+        .news-list-close { 
+            background: rgba(0,0,0,0.1); color: white; border: none; border-radius: 50%; 
+            width: 32px; height: 32px; cursor: pointer; font-size: 16px; 
+            display: flex; align-items: center; justify-content: center; 
+            transition: background 0.2s;
+        }
+        .news-list-close:hover { background: rgba(0,0,0,0.2); }
+
+        /* 詳細モーダル */
+        .modal-content { background: white; width: 90%; max-width: 500px; max-height: 85vh; border-radius: 20px; overflow-y: auto; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.3); animation: popIn 0.3s; }
+        @keyframes popIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal-header img { width: 100%; height: auto; max-height: 300px; object-fit: contain; display: block; background: #333; }
+        .modal-close-btn { position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 36px; height: 36px; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .modal-body { padding: 25px; }
+        .modal-title { font-size: 24px; font-weight: bold; margin: 10px 0; color: #333; }
+        .modal-text { font-size: 15px; line-height: 1.8; color: #555; white-space: pre-wrap; }
+        
+        .btn-nav-large { display: block; width: 100%; background: white; border: 2px solid var(--color-nav); color: var(--color-nav); padding: 12px; border-radius: 12px; margin-bottom: 12px; font-weight: bold; font-size: 15px; cursor: pointer; text-align: center; text-decoration: none; transition: all 0.2s; }
+        .btn-nav-large:hover { background: var(--color-nav); color: white; }
+        .btn-coupon-large { display: block; width: 100%; background: linear-gradient(135deg, #FF9800, #F57C00); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; text-align: center; }
+        
+        .coupon-card { background: #FFF8E1; border: 3px dashed #FF9800; padding: 30px; border-radius: 20px; width: 80%; max-width: 350px; text-align: center; position: relative; }
+        .coupon-text { font-size: 24px; font-weight: bold; margin: 20px 0; color: #E65100; }
+        .coupon-close { background: #333; color: white; padding: 10px 30px; border-radius: 30px; font-weight: bold; border:none; cursor: pointer;}
+    </style>
+</head>
+<body>
+
+    <div id="loading"><i class="fas fa-water fa-spin"></i> Loading...</div>
+
+    <div class="controls-container">
+        <button class="lang-btn" onclick="App.toggleLanguage()">
+            <i class="fas fa-globe"></i> <span id="lang-text">JP</span>
+        </button>
+        <button class="filter-toggle-btn" onclick="UI.toggleFilterPanel()">
+            <i class="fas fa-filter"></i> <span id="filter-btn-text">Filter</span>
+        </button>
+        <div class="filter-panel" id="filter-panel">
+            <div id="filter-list"></div>
+        </div>
+    </div>
+
+    <div class="news-ticker-wrapper" id="news-ticker-wrapper" style="display:none;">
+        <div class="news-ticker">
+            <div class="news-icon-area"><i class="fas fa-bullhorn"></i></div>
+            <div class="news-content-area" onclick="App.focusCurrentNews()">
+                <span class="news-text" id="ticker-text"></span>
+                <span class="news-spot-name" id="ticker-spot"></span>
+            </div>
+            <div class="news-controls">
+                <span class="news-counter" id="ticker-counter"></span>
+                <button class="news-list-btn" onclick="UI.openNewsList()">
+                    <i class="fas fa-list-ul"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id='map'></div>
+
+    <div class="map-controls">
+        <button class="btn-control btn-gps" onclick="App.flyToUser()"><i class="fas fa-location-arrow"></i></button>
+        <button class="btn-control btn-reset" onclick="App.fitBounds()"><i class="fas fa-map"></i></button>
+    </div>
+
+    <div class="card-panel-container">
+        <div class="scroll-wrapper" id="slide-panel"></div>
+    </div>
+
+    <div class="news-list-overlay" id="news-list-overlay" onclick="UI.closeNewsList(event)">
+        <div class="news-list-card">
+            <div class="news-list-header">
+                <span>News List</span>
+                <button class="news-list-close" onclick="UI.closeNewsList(null, true)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="news-list-body" id="news-list-content"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-overlay" onclick="UI.closeModal(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <img src="" id="modal-img">
+                <button class="modal-close-btn" onclick="UI.closeModal(null, true)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <span class="modal-cat" id="modal-cat"></span>
+                <h2 class="modal-title" id="modal-title"></h2>
+                <div class="modal-text" id="modal-text"></div>
+                <a id="modal-nav-btn" class="btn-nav-large" target="_blank">
+                    <i class="fas fa-location-arrow"></i> <span id="btn-nav-text">Google Mapsで見る</span>
+                </a>
+                <button class="btn-coupon-large" id="modal-coupon-btn" onclick="UI.showCoupon()">
+                    <i class="fas fa-ticket-alt"></i> <span id="btn-coupon-text">Get Coupon</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="coupon-overlay" onclick="UI.closeCoupon(event)">
+        <div class="coupon-card">
+            <div style="font-size:20px; font-weight:bold; color:#E65100; margin-bottom:10px;">Special Coupon</div>
+            <div class="coupon-text" id="coupon-text"></div>
+            <p style="font-size:12px; color:#666; margin-bottom:20px;">Please show this screen.</p>
+            <button class="coupon-close" onclick="UI.closeCoupon(null, true)">Close</button>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            MAPBOX_TOKEN: 'pk.eyJ1Ijoic3RhbmQyMDI1IiwiYSI6ImNtajVzdzc4ODA3cGszZnEyb2ZpbXQydTMifQ.WQ0WWlWV8ydJkPWIXI2fcQ',
+            SHEET_ID: '1ACEt8sM_3U986IwIhuGssjrQmOavO4eiYfYxmPIRqxM',
+            COLS: { 
+                NAME: 1, LAT: 2, LNG: 3, EMOJI: 4, URL: 5, DESC: 6, 
+                CAT: 7, HIDDEN: 8, STATUS: 11, NEWS: 12, DETAIL: 13, COUPON: 14,
+                NAME_EN: 15, DESC_EN: 16, CAT_EN: 17, NEWS_EN: 18, DETAIL_EN: 19, COUPON_EN: 20
+            },
+            COLORS: { DEFAULT: '#00897B', RED: '#FF5252', YELLOW: '#FFCA28' },
+            TRANSLATIONS: {
+                ja: { all: 'すべて', details: '詳細', go: 'Google Mapsで見る', coupon: 'クーポンを使う', loading: '読み込み中...', noData: 'データなし', filter: '絞り込み' },
+                en: { all: 'All', details: 'Details', go: 'Open in Google Maps', coupon: 'Use Coupon', loading: 'Loading...', noData: 'No Data', filter: 'Filter' }
+            }
+        };
+
+        const State = {
+            language: 'ja',
+            allSpots: [], activeMarkers: [], userLocation: null, map: null,
+            newsList: [], currentNewsIndex: 0, newsInterval: null, currentSpot: null,
+            mapboxLanguage: null,
+            selectedCategories: new Set(),
+            isPC: window.innerWidth >= 768
+        };
+
+        window.addEventListener('resize', () => {
+            const newIsPC = window.innerWidth >= 768;
+            if (State.isPC !== newIsPC) {
+                State.isPC = newIsPC;
+                setTimeout(() => State.map.resize(), 300);
+            }
+        });
+
+        mapboxgl.accessToken = CONFIG.MAPBOX_TOKEN;
+        State.map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/outdoors-v12',
+            center: [138.9453, 34.6750], zoom: 14.5, pitch: 50, bearing: -10, antialias: true
+        });
+        
+        State.mapboxLanguage = new MapboxLanguage({ defaultLanguage: 'ja' });
+        State.map.addControl(State.mapboxLanguage);
+
+        State.map.on('load', () => {
+            addMapEffects();
+            fetchData();
+            startTracking();
+        });
+
+        const t = (key) => CONFIG.TRANSLATIONS[State.language][key];
+        const val = (spot, key) => {
+            if (State.language === 'ja') return spot[key];
+            return spot[key + '_en'] || spot[key];
+        };
+
+        function fetchData() {
+            const script = document.createElement('script');
+            const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=responseHandler:onDataLoaded&_=${Date.now()}`;
+            script.src = url;
+            document.body.appendChild(script);
+        }
+
+        window.onDataLoaded = function(json) {
+            State.allSpots = parseData(json);
+            if (State.allSpots.length > 0) {
+                const cats = [...new Set(State.allSpots.map(s => val(s, 'category')))].filter(c => c);
+                cats.forEach(c => State.selectedCategories.add(c));
+                App.refreshUI();
+                document.getElementById('loading').style.display = 'none';
+            }
+        };
+
+        function parseData(json) {
+            if (!json.table || !json.table.rows) return [];
+            const { COLS } = CONFIG;
+            const validData = [];
+            json.table.rows.forEach((row, i) => {
+                if (!row || !row.c) return;
+                const name = row.c[COLS.NAME]?.v;
+                const lat = row.c[COLS.LAT]?.v;
+                const lng = row.c[COLS.LNG]?.v;
+                if (!name || lat == null || lng == null) return;
+                const isHidden = (row.c[COLS.HIDDEN]?.v === false || row.c[COLS.HIDDEN]?.v === 'FALSE');
+                if (isHidden) return;
+
+                let emoji = row.c[COLS.EMOJI]?.v || '📍';
+                let url = row.c[COLS.URL]?.v || '';
+                if (typeof url !== 'string' || !url.startsWith('http')) url = '';
+
+                validData.push({
+                    id: `spot_${i}`, coords: [Number(lng), Number(lat)],
+                    emoji: emoji, imageUrl: url, status: row.c[COLS.STATUS]?.v || '',
+                    name: name, desc: row.c[COLS.DESC]?.v || '', category: row.c[COLS.CAT]?.v || 'Others',
+                    news: row.c[COLS.NEWS]?.v || '', detail: row.c[COLS.DETAIL]?.v || '', coupon: row.c[COLS.COUPON]?.v || '',
+                    name_en: row.c[COLS.NAME_EN]?.v || name, 
+                    desc_en: row.c[COLS.DESC_EN]?.v || row.c[COLS.DESC]?.v || '',
+                    category_en: row.c[COLS.CAT_EN]?.v || row.c[COLS.CAT]?.v || 'Others',
+                    news_en: row.c[COLS.NEWS_EN]?.v || '',
+                    detail_en: row.c[COLS.DETAIL_EN]?.v || row.c[COLS.DETAIL]?.v || '',
+                    coupon_en: row.c[COLS.COUPON_EN]?.v || row.c[COLS.COUPON]?.v || ''
+                });
+            });
+            return validData;
+        }
+
+        const App = {
+            toggleLanguage: () => {
+                State.language = (State.language === 'ja') ? 'en' : 'ja';
+                document.getElementById('lang-text').innerText = State.language.toUpperCase();
+                State.mapboxLanguage.setLanguage(State.map.getStyle(), State.language);
+                App.refreshUI();
+            },
+            refreshUI: () => {
+                document.getElementById('filter-btn-text').innerText = t('filter');
+                UI.generateFilters(State.allSpots);
+                App.applyFilters();
+                clearInterval(State.newsInterval);
+                State.newsList = State.allSpots.filter(s => val(s, 'news'));
+                if (State.newsList.length > 0) UI.startTicker();
+                else document.getElementById('news-ticker-wrapper').style.display = 'none';
+            },
+            toggleCategory: (category, isChecked) => {
+                if (isChecked) State.selectedCategories.add(category);
+                else State.selectedCategories.delete(category);
+                const allCheck = document.getElementById('filter-all');
+                const inputs = document.querySelectorAll('#filter-list input:not(#filter-all)');
+                if (allCheck) allCheck.checked = Array.from(inputs).every(i => i.checked);
+                App.applyFilters();
+            },
+            toggleAll: (isChecked) => {
+                const inputs = document.querySelectorAll('#filter-list input');
+                inputs.forEach(input => {
+                    input.checked = isChecked;
+                    const cat = input.getAttribute('data-cat');
+                    if (cat) {
+                        if (isChecked) State.selectedCategories.add(cat);
+                        else State.selectedCategories.delete(cat);
+                    }
+                });
+                App.applyFilters();
+            },
+            applyFilters: () => {
+                const targets = State.allSpots.filter(s => State.selectedCategories.has(val(s, 'category')));
+                UI.updateMarkers(targets);
+                UI.renderCards(targets);
+            },
+            fitBounds: () => {
+                const targets = State.allSpots.filter(s => State.selectedCategories.has(val(s, 'category')));
+                if (targets.length === 0) return;
+                const bounds = new mapboxgl.LngLatBounds();
+                targets.forEach(s => bounds.extend(s.coords));
+                const padding = State.isPC 
+                    ? { top: 100, bottom: 100, left: 50, right: 50 }
+                    : { top: 150, bottom: 350, left: 50, right: 50 };
+                State.map.fitBounds(bounds, { padding: padding, pitch: 50 });
+            },
+            selectSpot: (spot) => {
+                const padding = State.isPC
+                    ? { top: 50, bottom: 50, left: 50, right: 50 }
+                    : { top: 50, bottom: 300, left: 20, right: 20 };
+                State.map.flyTo({ center: spot.coords, zoom: 17, pitch: 60, speed: 0.8, padding: padding, essential: true });
+                document.querySelectorAll('.custom-marker').forEach(m => m.classList.remove('active'));
+                const marker = document.getElementById(`marker-${spot.id}`);
+                if (marker) marker.classList.add('active');
+                UI.highlightCard(spot);
+                gtag('event', 'select_content', {'content_type': 'spot', 'item_id': spot.name});
+            },
+            flyToUser: () => {
+                if (State.userLocation) State.map.flyTo({ center: State.userLocation.getLngLat(), zoom: 16, pitch: 50 });
+            },
+            focusCurrentNews: () => {
+                const spot = State.newsList[State.currentNewsIndex];
+                if(spot) App.selectSpot(spot);
+            }
+        };
+
+        const UI = {
+            generateFilters: (spots) => {
+                const list = document.getElementById('filter-list');
+                list.innerHTML = '';
+                const cats = [...new Set(spots.map(s => val(s, 'category')))].filter(c => c);
+                const allLabel = document.createElement('label');
+                allLabel.className = 'filter-item';
+                allLabel.innerHTML = `<input type="checkbox" id="filter-all" checked onchange="App.toggleAll(this.checked)"><span class="checkmark"></span><span class="filter-label" style="font-weight:bold">${t('all')}</span>`;
+                list.appendChild(allLabel);
+                cats.forEach(cat => {
+                    const item = document.createElement('label');
+                    item.className = 'filter-item';
+                    const checked = State.selectedCategories.has(cat) ? 'checked' : '';
+                    item.innerHTML = `<input type="checkbox" data-cat="${cat}" ${checked} onchange="App.toggleCategory('${cat}', this.checked)"><span class="checkmark"></span><span class="filter-label">${cat}</span>`;
+                    list.appendChild(item);
+                });
+            },
+            toggleFilterPanel: () => { document.getElementById('filter-panel').classList.toggle('open'); },
+            updateMarkers: (spots) => {
+                State.activeMarkers.forEach(m => m.remove());
+                State.activeMarkers = [];
+                spots.forEach(spot => {
+                    const color = getStatusInfo(spot.status).color;
+                    const el = document.createElement('div');
+                    el.className = 'custom-marker'; el.id = `marker-${spot.id}`;
+                    const inner = document.createElement('div'); inner.className = 'marker-inner floating'; inner.style.borderColor = color;
+                    const emoji = document.createElement('span'); emoji.className = 'marker-emoji'; emoji.innerText = spot.emoji; inner.appendChild(emoji);
+                    if (spot.imageUrl) {
+                        const img = new Image(); img.src = spot.imageUrl; img.className = 'marker-image'; img.style.display = 'none'; 
+                        img.onload = () => { img.style.display = 'block'; emoji.style.display = 'none'; inner.appendChild(img); };
+                    }
+                    if (spot.status) inner.innerHTML += `<div class="status-badge" style="background:${color}; display:block;"></div>`;
+                    if (val(spot, 'news')) el.innerHTML += `<div class="marker-news-badge"><i class="fas fa-bullhorn"></i></div>`;
+                    el.appendChild(inner);
+                    el.onclick = (e) => { e.stopPropagation(); App.selectSpot(spot); };
+                    const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' }).setLngLat(spot.coords).addTo(State.map);
+                    State.activeMarkers.push(marker);
+                });
+            },
+            renderCards: (spots) => {
+                const container = document.getElementById('slide-panel');
+                container.innerHTML = '';
+                if (spots.length === 0) { container.innerHTML = `<div style="padding:20px; color:#555;">${t('noData')}</div>`; return; }
+                spots.forEach(spot => {
+                    const card = document.createElement('div');
+                    card.className = 'slide-card'; card.id = `card-${spot.id}`;
+                    card.onclick = () => App.selectSpot(spot);
+                    let thumbHtml = spot.imageUrl ? `<img src="${spot.imageUrl}" class="card-thumb" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : '';
+                    const placeholder = `<div class="card-emoji-placeholder" style="${spot.imageUrl?'display:none':''}">${spot.emoji}</div>`;
+                    const statusInfo = getStatusInfo(spot.status);
+                    const statusHtml = spot.status ? `<span class="card-status" style="background:${statusInfo.bg}; color:${statusInfo.text};">${spot.status}</span>` : '';
+                    const newsHtml = val(spot, 'news') ? `<div class="flash-news-tag"><i class="fas fa-bullhorn"></i> ${val(spot, 'news')}</div>` : '';
+                    card.innerHTML = `<div class="card-image-area">${thumbHtml}${placeholder}</div><div class="card-info"><div class="card-title">${val(spot, 'name')}</div><div class="card-meta-row">${statusHtml}${newsHtml}</div><div class="card-arrow" onclick="event.stopPropagation(); UI.openModal('${spot.id}')"><i class="fas fa-arrow-right"></i></div></div>`;
+                    container.appendChild(card);
+                });
+            },
+            highlightCard: (spot) => {
+                document.querySelectorAll('.slide-card').forEach(c => { c.classList.remove('active'); });
+                const target = document.getElementById(`card-${spot.id}`);
+                if (!target) return;
+                target.classList.add('active');
+                const container = document.getElementById('slide-panel');
+                if (State.isPC) container.scrollTo({ top: target.offsetTop - container.offsetTop, behavior: 'smooth' });
+                else container.scrollTo({ left: target.offsetLeft - (container.clientWidth / 2) + (target.offsetWidth / 2), behavior: 'smooth' });
+            },
+            startTicker: () => {
+                document.getElementById('news-ticker-wrapper').style.display = 'flex';
+                UI.updateTickerText();
+                State.newsInterval = setInterval(() => { State.currentNewsIndex = (State.currentNewsIndex + 1) % State.newsList.length; UI.updateTickerText(); }, 4000);
+            },
+            updateTickerText: () => {
+                const spot = State.newsList[State.currentNewsIndex];
+                const textEl = document.getElementById('ticker-text');
+                const spotEl = document.getElementById('ticker-spot');
+                const counterEl = document.getElementById('ticker-counter');
+                if(!spot) return;
+                textEl.style.opacity = 0; spotEl.style.opacity = 0;
+                setTimeout(() => {
+                    textEl.innerText = val(spot, 'news');
+                    spotEl.innerText = `@${val(spot, 'name')}`;
+                    counterEl.innerText = `${State.currentNewsIndex + 1}/${State.newsList.length}`;
+                    textEl.style.opacity = 1; spotEl.style.opacity = 1;
+                }, 300);
+            },
+            openNewsList: () => {
+                const listContainer = document.getElementById('news-list-content');
+                listContainer.innerHTML = '';
+                State.newsList.forEach(spot => {
+                    const item = document.createElement('div');
+                    item.className = 'news-item';
+                    item.onclick = () => { App.selectSpot(spot); UI.closeNewsList(null, true); };
+                    item.innerHTML = `<div class="news-item-icon"><i class="fas fa-bullhorn"></i></div><div class="news-item-content"><h4>${val(spot, 'news')}</h4><p>@${val(spot, 'name')}</p></div>`;
+                    listContainer.appendChild(item);
+                });
+                document.getElementById('news-list-overlay').classList.add('open');
+            },
+            closeNewsList: (e, force) => { if (force || e.target.id === 'news-list-overlay') document.getElementById('news-list-overlay').classList.remove('open'); },
+            openModal: (spotId) => {
+                const spot = State.allSpots.find(s => s.id === spotId);
+                if(!spot) return;
+                State.currentSpot = spot;
+                document.getElementById('modal-img').src = spot.imageUrl || '';
+                document.getElementById('modal-img').style.display = spot.imageUrl ? 'block' : 'none';
+                document.getElementById('modal-cat').innerText = val(spot, 'category');
+                document.getElementById('modal-title').innerText = val(spot, 'name');
+                document.getElementById('modal-text').innerText = val(spot, 'detail') || val(spot, 'desc') || '';
+                
+                // ナビボタン設定
+                document.getElementById('btn-nav-text').innerText = t('go');
+                document.getElementById('modal-nav-btn').href = `https://www.google.com/maps/dir/?api=1&destination=${spot.coords[1]},${spot.coords[0]}`;
+
+                const btn = document.getElementById('modal-coupon-btn');
+                document.getElementById('btn-coupon-text').innerText = t('coupon');
+                btn.style.display = val(spot, 'coupon') ? 'block' : 'none';
+                document.getElementById('modal-overlay').classList.add('open');
+            },
+            closeModal: (e, force) => { if (force || e.target.id === 'modal-overlay') document.getElementById('modal-overlay').classList.remove('open'); },
+            showCoupon: () => {
+                const spot = State.currentSpot;
+                if (!spot || !val(spot, 'coupon')) return;
+                document.getElementById('coupon-text').innerText = val(spot, 'coupon');
+                document.getElementById('coupon-overlay').style.display = 'flex';
+                gtag('event', 'use_coupon', { 'item_id': spot.name });
+            },
+            closeCoupon: (e, force) => { if (force || e.target.id === 'coupon-overlay') document.getElementById('coupon-overlay').style.display = 'none'; }
+        };
+
+        function getStatusInfo(status) {
+            if (!status) return { color: CONFIG.COLORS.DEFAULT, bg: '#E0F2F1', text: '#00695C' };
+            const s = String(status);
+            if (s.match(/満|Full|×|Red/i)) return { color: CONFIG.COLORS.RED, bg: '#FFEBEE', text: '#C62828' };
+            if (s.match(/混|Crowded|△|Yellow/i)) return { color: CONFIG.COLORS.YELLOW, bg: '#FFF8E1', text: '#F9A825' };
+            return { color: CONFIG.COLORS.DEFAULT, bg: '#E0F2F1', text: '#00695C' };
+        }
+
+        function addMapEffects() {
+            State.map.addLayer({ 'id': 'sky', 'type': 'sky', 'paint': { 'sky-type': 'atmosphere', 'sky-atmosphere-sun': [0.0, 90.0], 'sky-atmosphere-color': '#E0F7FA', 'sky-opacity': 1 } });
+            if (State.map.getLayer('water')) State.map.setPaintProperty('water', 'fill-color', '#4DB6AC');
+            const labelId = State.map.getStyle().layers.find(l => l.type === 'symbol' && l.layout['text-field']).id;
+            State.map.addLayer({
+                'id': '3d-buildings', 'source': 'composite', 'source-layer': 'building', 'filter': ['==', 'extrude', 'true'], 'type': 'fill-extrusion', 'minzoom': 13,
+                'paint': { 'fill-extrusion-color': '#F5F5F5', 'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 15, 0, 15.05, ['get', 'height']], 'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 15, 0, 15.05, ['get', 'min_height']], 'fill-extrusion-opacity': 0.9 }
+            }, labelId);
+        }
+        function startTracking() {
+            if (!navigator.geolocation) return;
+            navigator.geolocation.watchPosition(pos => {
+                const coords = [pos.coords.longitude, pos.coords.latitude];
+                if (!State.userLocation) {
+                    const el = document.createElement('div'); el.className = 'my-location-marker';
+                    el.innerHTML = '<i class="fas fa-child-reaching"></i>';
+                    State.userLocation = new mapboxgl.Marker({ element: el }).setLngLat(coords).addTo(State.map);
+                } else { State.userLocation.setLngLat(coords); }
+            }, e => console.log(e), { enableHighAccuracy: true });
+        }
+    </script>
+</body>
+</html>
