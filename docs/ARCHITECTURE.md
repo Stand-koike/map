@@ -12,7 +12,7 @@
 | **DataModule** | Google Sheets `gviz` JSONP 取得、`_parse`、差分ハッシュ、ポーリング、`?refresh=1` 時の強制再取得 |
 | **LayerManager** | 店舗ピン / ルート / エリア等の表示定義と GeoJSON ソース登録、トグル |
 | **MapModule** | Mapbox 初期化（`empty-v9` + `map.png` 画像ソース）、フィット bounds、GPS |
-| **UIModule** | フィルター・レイヤーパネル・マーカー DOM・カード・モーダル・ティッカー |
+| **UIModule** | フィルター・レイヤーパネル・マーカー DOM・カード・モーダル・ティッカー・サイドバー折りたたみ（toggleSidebar） |
 | **App** | 言語切替、カテゴリ選択、スポット選択、データ到着後の UI 更新 |
 
 ---
