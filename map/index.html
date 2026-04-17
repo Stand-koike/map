@@ -330,13 +330,14 @@
 
         /* --- PC レイアウト --- */
         @media (min-width: 768px) {
-            #map { width: calc(100% - var(--sidebar-width)); }
-            .news-ticker-wrapper { width: calc(100% - var(--sidebar-width)); left: var(--sidebar-width); }
-            .controls-container { left: calc(var(--sidebar-width) + 20px); }
+            #map { width: calc(100% - var(--sidebar-width)); transition: width 0.3s ease; }
+            .news-ticker-wrapper { width: calc(100% - var(--sidebar-width)); left: var(--sidebar-width); transition: width 0.3s ease, left 0.3s ease; }
+            .controls-container { left: calc(var(--sidebar-width) + 20px); transition: left 0.3s ease; }
             .card-panel-container {
                 top: 0; left: 0; bottom: 0; width: var(--sidebar-width);
                 background: white; box-shadow: 2px 0 15px rgba(0,0,0,0.1);
                 padding: 0; border-right: 1px solid #eee; pointer-events: auto;
+                transition: transform 0.3s ease;
             }
             .scroll-wrapper {
                 height: 100%; overflow-y: auto; flex-direction: column;
@@ -514,6 +515,64 @@
         .coupon-close { background: #333; color: white; padding: 10px 30px; border-radius: 30px; font-weight: bold; border: none; cursor: pointer; }
 
         /* ============================================================
+           SIDEBAR TOGGLE BUTTON (PC only)
+           ============================================================ */
+        .sidebar-toggle-btn {
+            display: none;
+        }
+        @media (min-width: 768px) {
+            .sidebar-toggle-btn {
+                display: flex;
+                position: fixed;
+                top: 50%;
+                left: var(--sidebar-width);
+                transform: translateY(-50%);
+                width: 18px;
+                height: 60px;
+                background: white;
+                border: 1px solid #eee;
+                border-left: none;
+                border-radius: 0 10px 10px 0;
+                box-shadow: 3px 0 10px rgba(0,0,0,0.1);
+                cursor: pointer;
+                align-items: center;
+                justify-content: center;
+                color: var(--color-text-sub);
+                font-size: 11px;
+                z-index: 50;
+                transition: left 0.3s ease, background 0.2s, color 0.2s;
+                padding: 0;
+            }
+            .sidebar-toggle-btn:hover {
+                background: var(--color-secondary);
+                color: var(--color-primary);
+            }
+            .sidebar-toggle-btn i {
+                transition: transform 0.3s ease;
+            }
+            /* 折りたたみ時 */
+            body.sidebar-collapsed .card-panel-container {
+                transform: translateX(calc(-1 * var(--sidebar-width)));
+            }
+            body.sidebar-collapsed #map {
+                width: 100%;
+            }
+            body.sidebar-collapsed .news-ticker-wrapper {
+                width: 100%;
+                left: 0;
+            }
+            body.sidebar-collapsed .controls-container {
+                left: 20px;
+            }
+            body.sidebar-collapsed .sidebar-toggle-btn {
+                left: 0;
+            }
+            body.sidebar-collapsed .sidebar-toggle-btn i {
+                transform: rotate(180deg);
+            }
+        }
+
+        /* ============================================================
            DATA REFRESH INDICATOR
            ============================================================ */
         #refresh-indicator {
@@ -595,6 +654,11 @@
 <div class="card-panel-container">
     <div class="scroll-wrapper" id="slide-panel"></div>
 </div>
+
+<!-- SIDEBAR TOGGLE (PC only) -->
+<button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="UIModule.toggleSidebar()" title="パネルを折りたたむ">
+    <i class="fas fa-chevron-left"></i>
+</button>
 
 <!-- DATA REFRESH INDICATOR -->
 <div id="refresh-indicator"><i class="fas fa-sync-alt fa-spin"></i> データ更新中...</div>
@@ -1127,17 +1191,37 @@ const MapModule = {
 
     _addIllustrationMap() {
         const { url, coordinates } = CONFIG.MAP_IMAGE;
-        this._map.addSource('illustration-map', {
-            type:        'image',
-            url:         url,
-            coordinates: coordinates
-        });
-        this._map.addLayer({
-            id:    'illustration-map-layer',
-            type:  'raster',
-            source:'illustration-map',
-            paint: { 'raster-opacity': 1, 'raster-fade-duration': 0 }
-        });
+        const addSource = (finalUrl) => {
+            this._map.addSource('illustration-map', {
+                type:        'image',
+                url:         finalUrl,
+                coordinates: coordinates
+            });
+            this._map.addLayer({
+                id:    'illustration-map-layer',
+                type:  'raster',
+                source:'illustration-map',
+                paint: { 'raster-opacity': 1, 'raster-fade-duration': 0 }
+            });
+        };
+
+        // file:// 環境では fetch が blocked になることがあるため、
+        // HTMLImageElement→canvas 経由で blob URL に変換して渡す
+        if (location.protocol === 'file:') {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const c = document.createElement('canvas');
+                    c.width = img.naturalWidth; c.height = img.naturalHeight;
+                    c.getContext('2d').drawImage(img, 0, 0);
+                    c.toBlob(blob => addSource(blob ? URL.createObjectURL(blob) : url));
+                } catch (e) { addSource(url); }
+            };
+            img.onerror = () => addSource(url);
+            img.src = url;
+        } else {
+            addSource(url);
+        }
     },
 
     fitBounds() {
@@ -1289,6 +1373,12 @@ const UIModule = {
         const isOpen = target.classList.contains('open');
         document.querySelectorAll('.ctrl-panel').forEach(p => p.classList.remove('open'));
         if (!isOpen) target.classList.add('open');
+    },
+
+    // サイドバーの折りたたみ／展開 (PC のみ有効)
+    toggleSidebar() {
+        document.body.classList.toggle('sidebar-collapsed');
+        setTimeout(() => { if (MapModule._map) MapModule._map.resize(); }, 310);
     },
 
     // ---- マーカー ----
@@ -1724,6 +1814,10 @@ const App = {
     selectSpot(spot) {
         document.querySelectorAll('.custom-marker').forEach(m => m.classList.remove('active'));
         document.getElementById(`marker-${spot.id}`)?.classList.add('active');
+        // PC で折りたたまれていたら展開
+        if (State.isPC && document.body.classList.contains('sidebar-collapsed')) {
+            UIModule.toggleSidebar();
+        }
         MapModule.flyTo(spot);
         UIModule.highlightCard(spot);
         gtag('event', 'select_content', { content_type: 'spot', item_id: spot.name });
