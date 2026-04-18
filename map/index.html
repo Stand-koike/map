@@ -72,6 +72,15 @@
             pointer-events: none; box-shadow: var(--shadow-soft);
             backdrop-filter: blur(5px);
         }
+        #loading .loading-retry {
+            display: none; margin-top: 8px; text-align: center;
+        }
+        #loading .loading-retry button {
+            pointer-events: auto; cursor: pointer;
+            background: var(--color-primary); color: white; border: none;
+            border-radius: 20px; padding: 6px 16px; font-size: 12px;
+            font-weight: bold;
+        }
 
         /* ============================================================
            LEFT CONTROLS (言語 / フィルター / レイヤー)
@@ -82,6 +91,21 @@
             align-items: flex-start;
             transition: left 0.3s ease;
         }
+        @media (max-width: 767px) {
+            .controls-container {
+                top: auto; bottom: 0; left: 0; right: 0;
+                flex-direction: row; gap: 0;
+                align-items: stretch;
+                background: rgba(255, 255, 255, 0.97);
+                padding: 8px 10px;
+                padding-bottom: max(8px, env(safe-area-inset-bottom));
+                box-shadow: 0 -2px 16px rgba(0, 100, 180, 0.12);
+                z-index: 60;
+            }
+            .controls-container > * {
+                flex: 1; min-width: 0;
+            }
+        }
 
         .ctrl-btn {
             background: rgba(255,255,255,0.97); border: 1.5px solid rgba(0,150,210,0.18);
@@ -91,6 +115,16 @@
             box-shadow: var(--shadow-soft);
             display: flex; align-items: center; gap: 6px;
             transition: all 0.2s; white-space: nowrap;
+        }
+        @media (max-width: 767px) {
+            .ctrl-btn {
+                border-radius: 12px; padding: 10px 8px;
+                font-size: 12px; box-shadow: none; border: none;
+                justify-content: center; width: 100%;
+                background: transparent;
+            }
+            .ctrl-btn.primary { box-shadow: none; }
+            .ctrl-btn.layer { box-shadow: none; }
         }
         .ctrl-btn.primary {
             background: linear-gradient(135deg, #FF7043, #FF5722);
@@ -121,6 +155,21 @@
         .ctrl-panel.open {
             opacity: 1; transform: scale(1) translateY(0);
             pointer-events: auto;
+        }
+        @media (max-width: 767px) {
+            .ctrl-panel {
+                position: fixed; top: auto; left: 0 !important; right: 0;
+                bottom: 60px; bottom: calc(60px + env(safe-area-inset-bottom));
+                width: 94%; max-width: 340px; margin: 0 auto;
+                border-radius: 16px;
+                transform-origin: bottom center;
+                transform: scale(0.95) translateY(10px);
+                max-height: 50vh; overflow-y: auto;
+                z-index: 200;
+            }
+            .ctrl-panel.open {
+                transform: scale(1) translateY(0);
+            }
         }
         .ctrl-panel-title {
             font-size: 10px; font-weight: bold;
@@ -201,6 +250,20 @@
             pointer-events: auto; animation: slideDown 0.5s ease-out;
         }
         @keyframes slideDown { from { transform: translateY(-100px); } to { transform: translateY(0); } }
+        @media (max-width: 767px) {
+            .news-ticker-wrapper {
+                top: 10px; height: 38px;
+            }
+            .news-ticker {
+                width: 94%; max-width: none; padding: 0 8px 0 12px; gap: 6px;
+                border-radius: 20px; font-size: 12px;
+            }
+            .news-icon-area { font-size: 14px; }
+            .news-text { font-size: 12px; }
+            .news-spot-name { font-size: 9px; }
+            .news-counter { font-size: 10px; }
+            .news-list-btn { width: 28px; height: 28px; }
+        }
 
         .news-icon-area { color: var(--color-accent); font-size: 18px; animation: pulse 2s infinite; flex-shrink: 0; }
         @keyframes pulse { 50% { opacity: 0.5; } }
@@ -223,6 +286,10 @@
            ============================================================ */
         .custom-marker {
             width: 60px; height: 60px; cursor: pointer; z-index: 10;
+        }
+        @media (max-width: 767px) {
+            .custom-marker { width: 44px; height: 44px; }
+            .marker-emoji { font-size: 20px !important; }
         }
         .custom-marker.active { z-index: 100; }
         .marker-inner {
@@ -326,7 +393,31 @@
             transition: all 0.3s; cursor: pointer;
             border: 2px solid transparent; position: relative;
         }
-        @media (max-width: 767px) { .map-controls { bottom: 330px; } }
+        @media (max-width: 767px) {
+            .card-panel-container {
+                bottom: 56px;
+                bottom: calc(56px + env(safe-area-inset-bottom));
+                padding-bottom: 0;
+                background: none;
+            }
+            .scroll-wrapper {
+                padding: 6px 12px 10px; gap: 10px;
+            }
+            .slide-card {
+                flex: 0 0 200px; height: 180px; border-radius: 14px;
+            }
+            .card-image-area { height: 55% !important; }
+            .card-info { padding: 8px 10px !important; }
+            .card-title { font-size: 13px !important; margin-bottom: 4px !important; }
+            .card-meta-row { gap: 4px !important; }
+            .card-status { font-size: 10px !important; padding: 2px 6px !important; }
+            .flash-news-tag { font-size: 10px !important; padding: 2px 6px !important; }
+            .card-arrow { width: 26px !important; height: 26px !important; bottom: 8px !important; right: 8px !important; font-size: 12px !important; }
+            .tag-chips { margin-top: 3px !important; gap: 3px !important; }
+            .tag-chip { font-size: 9px !important; padding: 2px 5px !important; }
+            .map-controls { bottom: auto; top: 60px; right: 12px; }
+            .btn-control { width: 40px; height: 40px; font-size: 16px; }
+        }
 
         /* --- PC レイアウト --- */
         @media (min-width: 768px) {
@@ -475,6 +566,14 @@
             border-radius: 20px; overflow-y: auto; display: flex; flex-direction: column;
             box-shadow: 0 10px 40px rgba(0,0,0,0.3); animation: popIn 0.3s;
         }
+        @media (max-width: 767px) {
+            .modal-content {
+                width: 96%; max-height: 90vh; border-radius: 16px;
+            }
+            .modal-slider { height: 200px; border-radius: 16px 16px 0 0; }
+            .modal-body { padding: 18px; }
+            .modal-title { font-size: 20px; }
+        }
         @keyframes popIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .modal-header { position: relative; }
         .modal-close-btn {
@@ -573,6 +672,18 @@
         }
 
         /* ============================================================
+           MOBILE PANEL OVERLAY (パネル外タップで閉じる)
+           ============================================================ */
+        .ctrl-panel-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.3); z-index: 150;
+        }
+        .ctrl-panel-overlay.open { display: block; }
+        @media (min-width: 768px) {
+            .ctrl-panel-overlay { display: none !important; }
+        }
+
+        /* ============================================================
            DATA REFRESH INDICATOR
            ============================================================ */
         #refresh-indicator {
@@ -583,11 +694,19 @@
             opacity: 0; transition: opacity 0.4s;
         }
         #refresh-indicator.show { opacity: 1; }
+        @media (max-width: 767px) {
+            #refresh-indicator { bottom: 70px; bottom: calc(70px + env(safe-area-inset-bottom)); }
+        }
     </style>
 </head>
 <body>
 
-<div id="loading"><i class="fas fa-water fa-spin"></i> Loading...</div>
+<div id="loading">
+    <i class="fas fa-water fa-spin"></i> Loading...
+    <div class="loading-retry" id="loading-retry">
+        <button onclick="DataModule.retryFetch()"><i class="fas fa-redo"></i> Retry</button>
+    </div>
+</div>
 
 <!-- ============================================================
      LEFT CONTROLS
@@ -640,6 +759,9 @@
         </div>
     </div>
 </div>
+
+<!-- MOBILE PANEL OVERLAY -->
+<div class="ctrl-panel-overlay" id="ctrl-panel-overlay" onclick="UIModule.closePanelOverlay()"></div>
 
 <!-- MAP -->
 <div id="map"></div>
@@ -920,16 +1042,57 @@ function normalizeImageUrl(raw) {
 // ================================================================
 const DataModule = {
 
-    // JSONP で Google Sheets からデータを取得
+    _fetchTimeout: null,
+    _retryCount: 0,
+    _maxRetries: 3,
+
     fetch() {
+        this._retryCount = 0;
+        this._doFetch();
+    },
+
+    _doFetch() {
+        const cbName = '_gvizCb';
+        const oldScript = document.getElementById('gviz-script');
+        if (oldScript) oldScript.remove();
+
+        clearTimeout(this._fetchTimeout);
+        this._fetchTimeout = setTimeout(() => {
+            console.warn('[DataModule] タイムアウト - リトライ', this._retryCount + 1);
+            if (this._retryCount < this._maxRetries) {
+                this._retryCount++;
+                this._doFetch();
+            } else {
+                const retryEl = document.getElementById('loading-retry');
+                if (retryEl) retryEl.style.display = 'block';
+            }
+        }, 12000);
+
         const script = document.createElement('script');
-        script.src = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=responseHandler:DataModule.onLoaded&_=${Date.now()}`;
-        script.onerror = () => console.warn('[DataModule] データ取得に失敗しました');
+        script.id = 'gviz-script';
+        script.src = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=responseHandler:${cbName}&_=${Date.now()}`;
+        script.onerror = () => {
+            console.warn('[DataModule] スクリプト読み込み失敗');
+            clearTimeout(this._fetchTimeout);
+            if (this._retryCount < this._maxRetries) {
+                this._retryCount++;
+                setTimeout(() => this._doFetch(), 2000 * this._retryCount);
+            } else {
+                const retryEl = document.getElementById('loading-retry');
+                if (retryEl) retryEl.style.display = 'block';
+            }
+        };
         document.body.appendChild(script);
     },
 
-    // JSONP コールバック（グローバルから参照される）
+    retryFetch() {
+        const retryEl = document.getElementById('loading-retry');
+        if (retryEl) retryEl.style.display = 'none';
+        this.fetch();
+    },
+
     onLoaded(json) {
+        clearTimeout(this._fetchTimeout);
         const spots = DataModule._parse(json);
 
         // 差分ハッシュ比較: id・status・news が変化した場合のみ再描画
@@ -1039,8 +1202,11 @@ const DataModule = {
     }
 };
 
-// JSONP コールバックをグローバルに公開
-window['DataModule.onLoaded'] = DataModule.onLoaded.bind(DataModule);
+// JSONP コールバックをグローバルに公開（ドット付き名前は一部ブラウザで問題があるため単純名を使用）
+window._gvizCb = function(json) {
+    clearTimeout(DataModule._fetchTimeout);
+    DataModule.onLoaded(json);
+};
 
 // ================================================================
 // LayerManager — レイヤー管理
@@ -1175,16 +1341,18 @@ const MapModule = {
             this._startGPS();
         });
 
-        // パネルをクリックアウトで閉じる
         this._map.on('click', () => {
-            document.querySelectorAll('.ctrl-panel').forEach(p => p.classList.remove('open'));
+            UIModule.closePanelOverlay();
         });
 
         window.addEventListener('resize', () => {
             const pc = window.innerWidth >= 768;
             if (State.isPC !== pc) {
                 State.isPC = pc;
-                setTimeout(() => this._map.resize(), 300);
+                setTimeout(() => {
+                    this._map.resize();
+                    if (State.allSpots.length > 0) this.fitBounds();
+                }, 310);
             }
         });
     },
@@ -1235,19 +1403,19 @@ const MapModule = {
             targets.forEach(s => bounds.extend(s.coords));
             const padding = State.isPC
                 ? { top: 80,  bottom: 80,  left: 50, right: 50 }
-                : { top: 100, bottom: 320, left: 40, right: 40 };
+                : { top: 80, bottom: 260, left: 30, right: 30 };
             this._map.fitBounds(bounds, { padding, duration: 800 });
         } else {
-            // スポットがなければイラストマップ全体を表示
             const [[w, n], , [e, s]] = CONFIG.MAP_IMAGE.coordinates;
-            this._map.fitBounds([[w, s], [e, n]], { padding: 30, duration: 800 });
+            const pad = State.isPC ? 30 : { top: 60, bottom: 240, left: 20, right: 20 };
+            this._map.fitBounds([[w, s], [e, n]], { padding: pad, duration: 800 });
         }
     },
 
     flyTo(spot) {
         const padding = State.isPC
             ? { top: 50, bottom: 50, left: 50, right: 50 }
-            : { top: 50, bottom: 300, left: 20, right: 20 };
+            : { top: 50, bottom: 240, left: 20, right: 20 };
         this._map.flyTo({ center: spot.coords, zoom: 17, speed: 0.8, padding, essential: true });
     },
 
@@ -1367,12 +1535,23 @@ const UIModule = {
         });
     },
 
-    // ドロップダウンパネルの開閉（他のパネルを閉じてから開く）
     togglePanel(id) {
         const target = document.getElementById(id);
         const isOpen = target.classList.contains('open');
         document.querySelectorAll('.ctrl-panel').forEach(p => p.classList.remove('open'));
-        if (!isOpen) target.classList.add('open');
+        const overlay = document.getElementById('ctrl-panel-overlay');
+        if (!isOpen) {
+            target.classList.add('open');
+            if (!State.isPC && overlay) overlay.classList.add('open');
+        } else {
+            if (overlay) overlay.classList.remove('open');
+        }
+    },
+
+    closePanelOverlay() {
+        document.querySelectorAll('.ctrl-panel').forEach(p => p.classList.remove('open'));
+        const overlay = document.getElementById('ctrl-panel-overlay');
+        if (overlay) overlay.classList.remove('open');
     },
 
     // サイドバーの折りたたみ／展開 (PC のみ有効)
