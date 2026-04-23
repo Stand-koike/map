@@ -891,19 +891,27 @@ const CONFIG = {
     //   map.png を差し替えたら map.wld ごと再計算すること。
     // ----------------------------------------------------------------
     MAP_IMAGE: {
-        url: 'map.png',
+        url: '300.png',
         // Mapbox image source: [NW, NE, SE, SW] 各 [lng, lat]
+        // 座標は 300.pgw (EPSG:6676 / JGD2011 日本座標系VIII) → WGS84 変換
+        //   dx=0.32332411685  ul=(42895.7445, -146566.6726)  size=2500x2781
+        //   300.png を再差替する場合は 300.pgw から再計算すること。
+        // ピン位置のズレを補正する微調整オフセット（単位: 度）
+        // 北にずれている場合は latOffset を正（＝画像を北へ移動）
+        latOffset:  0.00018,   // ≈ +20m 北寄せ（ピンが北にずれて見えたので画像を北に補正）
+        lngOffset:  0.0,
         coordinates: [
-            [138.9677986, 34.6791875],  // NW
-            [138.9796757, 34.6791875],  // NE
-            [138.9796757, 34.6713192],  // SE
-            [138.9677986, 34.6713192]   // SW
+            [138.9681121, 34.6779157],  // NW
+            [138.9769292, 34.6778815],  // NE
+            [138.9768828, 34.6697785],  // SE
+            [138.9680665, 34.6698127]   // SW
         ],
-        center:    [138.9737371, 34.6752533],
+        center:    [138.9724976, 34.6738471],
         initZoom:  15,
         minZoom:   13,
-        maxZoom:   18,
-        maxBounds: [[138.963, 34.667], [138.984, 34.683]]
+        maxZoom:   19,
+        maxBounds: [[138.963, 34.665], [138.983, 34.683]]
+        // bearing は指定なし（=0・北が上・海が下）
     },
 
     // AppSheet ポーリング間隔 (ms)。0 で無効化
@@ -1358,12 +1366,13 @@ const MapModule = {
     },
 
     _addIllustrationMap() {
-        const { url, coordinates } = CONFIG.MAP_IMAGE;
+        const { url, coordinates, latOffset = 0, lngOffset = 0 } = CONFIG.MAP_IMAGE;
+        const adjustedCoords = coordinates.map(([lng, lat]) => [lng + lngOffset, lat + latOffset]);
         const addSource = (finalUrl) => {
             this._map.addSource('illustration-map', {
                 type:        'image',
                 url:         finalUrl,
-                coordinates: coordinates
+                coordinates: adjustedCoords
             });
             this._map.addLayer({
                 id:    'illustration-map-layer',
