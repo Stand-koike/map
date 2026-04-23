@@ -96,11 +96,12 @@
                 top: auto; bottom: 0; left: 0; right: 0;
                 flex-direction: row; gap: 0;
                 align-items: stretch;
-                background: rgba(255, 255, 255, 0.97);
-                padding: 8px 10px;
-                padding-bottom: max(8px, env(safe-area-inset-bottom));
-                box-shadow: 0 -2px 16px rgba(0, 100, 180, 0.12);
+                background: #fff;
+                padding: 0;
+                padding-bottom: env(safe-area-inset-bottom, 0px);
+                box-shadow: 0 -1px 0 rgba(0,0,0,0.08), 0 -4px 20px rgba(0, 80, 150, 0.10);
                 z-index: 60;
+                border-top: 1px solid rgba(0,0,0,0.06);
             }
             .controls-container > * {
                 flex: 1; min-width: 0;
@@ -118,13 +119,35 @@
         }
         @media (max-width: 767px) {
             .ctrl-btn {
-                border-radius: 12px; padding: 10px 8px;
-                font-size: 12px; box-shadow: none; border: none;
+                border-radius: 0; padding: 8px 4px 6px;
+                font-size: 10px; box-shadow: none; border: none;
                 justify-content: center; width: 100%;
                 background: transparent;
+                flex-direction: column; gap: 2px;
+                color: var(--color-text-sub);
+                position: relative;
+                transition: color 0.2s;
             }
-            .ctrl-btn.primary { box-shadow: none; }
-            .ctrl-btn.layer { box-shadow: none; }
+            .ctrl-btn i {
+                font-size: 18px;
+                line-height: 1;
+            }
+            .ctrl-btn.primary, .ctrl-btn.layer {
+                box-shadow: none;
+                background: transparent;
+                color: var(--color-text-sub);
+            }
+            .ctrl-btn.tab-active {
+                color: var(--color-primary);
+            }
+            .ctrl-btn.tab-active::after {
+                content: '';
+                position: absolute;
+                top: 0; left: 20%; right: 20%;
+                height: 2.5px;
+                background: var(--color-primary);
+                border-radius: 0 0 2px 2px;
+            }
         }
         .ctrl-btn.primary {
             background: linear-gradient(135deg, #FF7043, #FF5722);
@@ -137,6 +160,12 @@
             box-shadow: 0 4px 16px rgba(0,188,212,0.35);
         }
         .ctrl-btn:active { transform: scale(0.95); }
+
+        /* ホームタブ: PC では非表示 */
+        .bottom-tab-home { display: none; }
+        @media (max-width: 767px) {
+            .bottom-tab-home { display: flex; }
+        }
 
         /* ドロップダウンパネル共通 */
         .ctrl-panel-wrapper { position: relative; }
@@ -159,7 +188,7 @@
         @media (max-width: 767px) {
             .ctrl-panel {
                 position: fixed; top: auto; left: 0 !important; right: 0;
-                bottom: 60px; bottom: calc(60px + env(safe-area-inset-bottom));
+                bottom: 54px; bottom: calc(54px + env(safe-area-inset-bottom));
                 width: 94%; max-width: 340px; margin: 0 auto;
                 border-radius: 16px;
                 transform-origin: bottom center;
@@ -395,8 +424,8 @@
         }
         @media (max-width: 767px) {
             .card-panel-container {
-                bottom: 56px;
-                bottom: calc(56px + env(safe-area-inset-bottom));
+                bottom: 50px;
+                bottom: calc(50px + env(safe-area-inset-bottom));
                 padding-bottom: 0;
                 background: none;
             }
@@ -695,7 +724,7 @@
         }
         #refresh-indicator.show { opacity: 1; }
         @media (max-width: 767px) {
-            #refresh-indicator { bottom: 70px; bottom: calc(70px + env(safe-area-inset-bottom)); }
+            #refresh-indicator { bottom: 64px; bottom: calc(64px + env(safe-area-inset-bottom)); }
         }
     </style>
 </head>
@@ -713,14 +742,14 @@
      ============================================================ -->
 <div class="controls-container" id="controls-container">
 
-    <!-- 言語切替 -->
-    <button class="ctrl-btn" onclick="App.toggleLanguage()">
-        <i class="fas fa-globe"></i> <span id="lang-text">JP</span>
+    <!-- ホーム（マップリセット） — モバイルのみ表示 -->
+    <button class="ctrl-btn bottom-tab-home tab-active" id="tab-home" onclick="UIModule.onTabTap('home')">
+        <i class="fas fa-map"></i> <span id="home-btn-text">マップ</span>
     </button>
 
     <!-- カテゴリフィルター -->
     <div class="ctrl-panel-wrapper">
-        <button class="ctrl-btn primary" onclick="UIModule.togglePanel('filter-panel')">
+        <button class="ctrl-btn primary" id="tab-filter" onclick="UIModule.onTabTap('filter')">
             <i class="fas fa-filter"></i> <span id="filter-btn-text">絞り込み</span>
         </button>
         <div class="ctrl-panel" id="filter-panel">
@@ -731,7 +760,7 @@
 
     <!-- レイヤー管理 -->
     <div class="ctrl-panel-wrapper">
-        <button class="ctrl-btn layer" onclick="UIModule.togglePanel('layer-panel')">
+        <button class="ctrl-btn layer" id="tab-layer" onclick="UIModule.onTabTap('layer')">
             <i class="fas fa-layer-group"></i> <span id="layer-btn-text">レイヤー</span>
         </button>
         <div class="ctrl-panel" id="layer-panel">
@@ -739,6 +768,11 @@
             <div id="layer-list"></div>
         </div>
     </div>
+
+    <!-- 言語切替 -->
+    <button class="ctrl-btn" id="tab-lang" onclick="UIModule.onTabTap('lang')">
+        <i class="fas fa-globe"></i> <span id="lang-text">JP</span>
+    </button>
 </div>
 
 <!-- ============================================================
@@ -920,13 +954,13 @@ const CONFIG = {
             all: 'すべて', go: 'Google Mapsで見る', coupon: 'クーポンを使う',
             loading: '読み込み中...', noData: 'データなし', filter: '絞り込み',
             layers: 'レイヤー', newsListTitle: 'お知らせ一覧', updating: 'データ更新中...',
-            hours: '営業時間', tags: 'タグ', allTags: 'すべてのタグ'
+            hours: '営業時間', tags: 'タグ', allTags: 'すべてのタグ', map: 'マップ'
         },
         en: {
             all: 'All', go: 'Open in Google Maps', coupon: 'Use Coupon',
             loading: 'Loading...', noData: 'No Data', filter: 'Filter',
             layers: 'Layers', newsListTitle: 'News List', updating: 'Updating...',
-            hours: 'Hours', tags: 'Tags', allTags: 'All Tags'
+            hours: 'Hours', tags: 'Tags', allTags: 'All Tags', map: 'Map'
         }
     }
 };
@@ -1544,6 +1578,37 @@ const UIModule = {
         });
     },
 
+    onTabTap(tabName) {
+        if (State.isPC) {
+            if (tabName === 'filter') this.togglePanel('filter-panel');
+            else if (tabName === 'layer') this.togglePanel('layer-panel');
+            else if (tabName === 'lang') App.toggleLanguage();
+            return;
+        }
+        if (tabName === 'home') {
+            this.closePanelOverlay();
+            MapModule.fitBounds();
+            this._setActiveTab('tab-home');
+        } else if (tabName === 'filter') {
+            this.togglePanel('filter-panel');
+            this._setActiveTab('tab-filter');
+        } else if (tabName === 'layer') {
+            this.togglePanel('layer-panel');
+            this._setActiveTab('tab-layer');
+        } else if (tabName === 'lang') {
+            this.closePanelOverlay();
+            App.toggleLanguage();
+            this._setActiveTab('tab-lang');
+            setTimeout(() => this._setActiveTab('tab-home'), 600);
+        }
+    },
+
+    _setActiveTab(activeId) {
+        document.querySelectorAll('#controls-container .ctrl-btn').forEach(btn => {
+            btn.classList.toggle('tab-active', btn.id === activeId);
+        });
+    },
+
     togglePanel(id) {
         const target = document.getElementById(id);
         const isOpen = target.classList.contains('open');
@@ -1554,6 +1619,7 @@ const UIModule = {
             if (!State.isPC && overlay) overlay.classList.add('open');
         } else {
             if (overlay) overlay.classList.remove('open');
+            if (!State.isPC) this._setActiveTab('tab-home');
         }
     },
 
@@ -1561,6 +1627,7 @@ const UIModule = {
         document.querySelectorAll('.ctrl-panel').forEach(p => p.classList.remove('open'));
         const overlay = document.getElementById('ctrl-panel-overlay');
         if (overlay) overlay.classList.remove('open');
+        if (!State.isPC) this._setActiveTab('tab-home');
     },
 
     // サイドバーの折りたたみ／展開 (PC のみ有効)
@@ -1935,6 +2002,8 @@ const App = {
     _refreshUI() {
         document.getElementById('filter-btn-text').innerText = t('filter');
         document.getElementById('layer-btn-text').innerText  = t('layers');
+        const homeText = document.getElementById('home-btn-text');
+        if (homeText) homeText.innerText = t('map');
 
         UIModule.generateFilters(State.allSpots);
         UIModule.renderLayerPanel();
