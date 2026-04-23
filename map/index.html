@@ -884,26 +884,32 @@ const CONFIG = {
     COLORS: { DEFAULT: '#0096C7', RED: '#FF5252', YELLOW: '#FFCA28' },
 
     // ----------------------------------------------------------------
-    // イラストマップ地理参照（map.wld + map.png ピクセル寸法と同期すること）
-    //   map.png 937×755、WLD CRS: EPSG:3857（Web メルカトル）
-    //   dx/dy=1.4125553051、原点(15469824.57, 4120369.02)
-    //   → EPSG:3857 → EPSG:4326（pyproj）で四隅変換。
-    //   map.png を差し替えたら map.wld ごと再計算すること。
+    // イラストマップ地理参照
+    //   使用画像: 300.png（2500×2781px）
+    //   CRS: EPSG:6676（JGD2011 日本座標系VIII）→ WGS84 変換
+    //   ワールドファイル: 300.pgw（dx=0.32332411685, ul=(42895.7445, -146566.6726)）
+    //   画像を差し替える場合は 300.pgw から四隅座標を再計算すること。
+    //   ピン位置調整: latOffset / lngOffset（度単位）で画像位置を微調整可能
+    //   カメラ調整: bearing（方位）/ pitch（仰角）/ initZoom をブラウザ上で確認後に設定
+    //     確認方法: MapModule._map.getBearing() / getPitch() / getZoom()
     // ----------------------------------------------------------------
     MAP_IMAGE: {
-        url: 'map.png',
-        // Mapbox image source: [NW, NE, SE, SW] 各 [lng, lat]
+        url:        '300.png',
         coordinates: [
-            [138.9677986, 34.6791875],  // NW
-            [138.9796757, 34.6791875],  // NE
-            [138.9796757, 34.6713192],  // SE
-            [138.9677986, 34.6713192]   // SW
+            [138.9681121, 34.6779157],  // NW
+            [138.9769292, 34.6778815],  // NE
+            [138.9768828, 34.6697785],  // SE
+            [138.9680665, 34.6698127]   // SW
         ],
-        center:    [138.9737371, 34.6752533],
-        initZoom:  15,
+        latOffset:  0.00018,  // 画像を北へ約20mずらしてピンと整合
+        lngOffset:  0.0,
+        center:    [138.9724976, 34.6738471],
+        initZoom:  16.69,
         minZoom:   13,
-        maxZoom:   18,
-        maxBounds: [[138.963, 34.667], [138.984, 34.683]]
+        maxZoom:   19,
+        maxBounds: [[138.963, 34.665], [138.983, 34.683]],
+        bearing:   -116,  // カメラ初期方位（度）
+        pitch:     45.5   // カメラ仰角（度）: 0=真上 〜 60=最大傾斜
     },
 
     // AppSheet ポーリング間隔 (ms)。0 で無効化
@@ -1319,7 +1325,7 @@ const MapModule = {
 
     init() {
         mapboxgl.accessToken = CONFIG.MAPBOX_TOKEN;
-        const { center, initZoom, minZoom, maxZoom, maxBounds } = CONFIG.MAP_IMAGE;
+        const { center, initZoom, minZoom, maxZoom, maxBounds, bearing = 0, pitch = 0 } = CONFIG.MAP_IMAGE;
 
         this._map = new mapboxgl.Map({
             container: 'map',
@@ -1329,6 +1335,8 @@ const MapModule = {
             minZoom:   minZoom,
             maxZoom:   maxZoom,
             maxBounds: maxBounds,
+            bearing:   bearing,
+            pitch:     pitch,
             antialias: true
         });
         State.map = this._map;
@@ -1358,12 +1366,13 @@ const MapModule = {
     },
 
     _addIllustrationMap() {
-        const { url, coordinates } = CONFIG.MAP_IMAGE;
+        const { url, coordinates, latOffset = 0, lngOffset = 0 } = CONFIG.MAP_IMAGE;
+        const adjustedCoords = coordinates.map(([lng, lat]) => [lng + lngOffset, lat + latOffset]);
         const addSource = (finalUrl) => {
             this._map.addSource('illustration-map', {
                 type:        'image',
                 url:         finalUrl,
-                coordinates: coordinates
+                coordinates: adjustedCoords
             });
             this._map.addLayer({
                 id:    'illustration-map-layer',
