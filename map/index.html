@@ -1135,11 +1135,12 @@ const DataModule = {
         clearTimeout(this._fetchTimeout);
         const spots = DataModule._parse(json);
 
-        // 差分ハッシュ比較: id・status・news が変化した場合のみ再描画
         const hash = spots.map(s =>
             `${s.id}|${s.status}|${s.news}|${s.imageUrl || ''}|${s.imageUrl2 || ''}|${s.imageUrl3 || ''}|${s.address || ''}|${s.phone || ''}|${s.hours || ''}|${(s.tags || []).join('+')}`
         ).join(',');
-        if (hash === State.lastDataHash) {
+        const loadingEl = document.getElementById('loading');
+        const isInitialLoad = loadingEl && loadingEl.style.display !== 'none';
+        if (hash === State.lastDataHash && !isInitialLoad) {
             DataModule._flashIndicator();
             return;
         }
@@ -1357,13 +1358,15 @@ const LayerManager = {
 const MapModule = {
     _map: null,
 
+    _loaded: false,
+
     init() {
         mapboxgl.accessToken = CONFIG.MAPBOX_TOKEN;
         const { center, initZoom, minZoom, maxZoom, maxBounds, bearing = 0, pitch = 0 } = CONFIG.MAP_IMAGE;
 
         this._map = new mapboxgl.Map({
             container: 'map',
-            style:     'mapbox://styles/mapbox/empty-v9',  // 空白スタイル (ベースマップなし)
+            style:     { version: 8, sources: {}, layers: [] },
             center:    center,
             zoom:      initZoom,
             minZoom:   minZoom,
@@ -1375,13 +1378,33 @@ const MapModule = {
         });
         State.map = this._map;
 
-        this._map.on('load', () => {
-            this._addIllustrationMap();
-            LayerManager.init(this._map);
+        const onMapReady = () => {
+            if (this._loaded) return;
+            this._loaded = true;
+            try {
+                this._addIllustrationMap();
+                LayerManager.init(this._map);
+            } catch (e) {
+                console.error('[MapModule] レイヤー初期化エラー:', e);
+            }
             DataModule.fetch();
             DataModule.startPolling();
             this._startGPS();
+        };
+
+        this._map.on('load', onMapReady);
+
+        this._map.on('error', (e) => {
+            console.warn('[MapModule] マップエラー:', e.error?.message || e);
+            if (!this._loaded) onMapReady();
         });
+
+        setTimeout(() => {
+            if (!this._loaded) {
+                console.warn('[MapModule] load タイムアウト — 強制的にデータ取得を開始');
+                onMapReady();
+            }
+        }, 8000);
 
         this._map.on('click', () => {
             UIModule.closePanelOverlay();
@@ -1988,6 +2011,7 @@ const App = {
     // データ取得完了後のメイン処理
     _onDataReady() {
         const spots = State.allSpots;
+        document.getElementById('loading').style.display = 'none';
         if (spots.length === 0) return;
 
         // 初回ロード時はすべてのカテゴリを選択
@@ -1996,7 +2020,6 @@ const App = {
                 .forEach(c => this._selectedCategories.add(c));
         }
         this._refreshUI();
-        document.getElementById('loading').style.display = 'none';
     },
 
     _refreshUI() {
