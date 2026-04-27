@@ -8,7 +8,7 @@
 |------|------|
 | `CONFIG.MAPBOX_TOKEN` | Mapbox アクセストークン（公開クライアント用。利用規約・ローテーションに注意） |
 | `CONFIG.SHEET_ID` | Google スプレッドシート ID（URL の `/d/` と `/edit` の間） |
-| `CONFIG.MAP_IMAGE` | イラスト `map.png` の URL および四隅座標・表示範囲。**`map.pgw` と画像ピクセル寸法から求めた WGS84 と同期**させる（`map.png` を差し替えたら再計算）。 |
+| `CONFIG.MAP_IMAGE` | イラスト画像の URL および四隅座標・表示範囲・オプションで bearing / pitch。本番既定は **`300.png`** と **`300.pgw`** 由来の座標。**画像を差し替えたらワールドファイルと四隅 WGS84 を再計算**（旧 `map.png` / `map.wld` に戻す場合も同様）。 |
 | `CONFIG.POLL_INTERVAL` | データ再取得間隔（ミリ秒）。`0` でポーリング無効 |
 
 ---
@@ -37,7 +37,7 @@
 
 ## 5. デプロイ
 
-- 静的ファイル（`index.html`、`map.png`、`map.pgw` 等）を **GitHub Pages / Netlify / Vercel / 自サーバ** 等に配置。
+- 静的ファイル（`index.html`、イラスト画像、`300.pgw` または `map.wld` 等）を **GitHub Pages / Netlify / Vercel / 自サーバ** 等に配置。
 - ルートに `map/` フォルダごと置くか、URL を `CONFIG` や `base` タグで合わせる。
 
 ---
